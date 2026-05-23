@@ -1,0 +1,458 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: Alpha Hunter Dashboard API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: trades
+    description: Paper trade operations
+  - name: candidates
+    description: Candidate tracking operations
+  - name: briefs
+    description: Morning brief and event operations
+  - name: config
+    description: Configuration operations
+  - name: overview
+    description: Overview and summary operations
+  - name: system
+    description: System health operations
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /overview/summary:
+    get:
+      operationId: getOverviewSummary
+      tags: [overview]
+      summary: Get dashboard overview summary
+      description: Returns key metrics for the dashboard overview
+      responses:
+        "200":
+          description: Overview summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OverviewSummary"
+
+  /trades:
+    get:
+      operationId: listTrades
+      tags: [trades]
+      summary: List all paper trades
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: market
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of trades
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Trade"
+
+  /trades/exposure:
+    get:
+      operationId: getTradeExposure
+      tags: [trades]
+      summary: Get trade exposure summary
+      responses:
+        "200":
+          description: Trade exposure
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TradeExposure"
+
+  /candidates:
+    get:
+      operationId: listCandidates
+      tags: [candidates]
+      summary: List all candidates
+      responses:
+        "200":
+          description: List of candidates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Candidate"
+
+  /candidates/stats:
+    get:
+      operationId: getCandidateStats
+      tags: [candidates]
+      summary: Get candidate stage breakdown counts
+      responses:
+        "200":
+          description: Candidate stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CandidateStats"
+
+  /briefs/latest:
+    get:
+      operationId: getLatestBrief
+      tags: [briefs]
+      summary: Get the latest morning brief
+      responses:
+        "200":
+          description: Latest brief
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Brief"
+
+  /briefs/events:
+    get:
+      operationId: listBriefEvents
+      tags: [briefs]
+      summary: List brief timeline events
+      responses:
+        "200":
+          description: List of brief events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BriefEvent"
+
+  /config:
+    get:
+      operationId: listConfig
+      tags: [config]
+      summary: Get effective configuration
+      responses:
+        "200":
+          description: Configuration settings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ConfigRow"
+
+  /system/health:
+    get:
+      operationId: getSystemHealth
+      tags: [system]
+      summary: Get system connector health
+      responses:
+        "200":
+          description: System health status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemHealth"
+
+  /system/actions:
+    post:
+      operationId: runSystemAction
+      tags: [system]
+      summary: Run a quick system action
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SystemActionInput"
+      responses:
+        "200":
+          description: Action result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActionResult"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    OverviewSummary:
+      type: object
+      required:
+        - openTrades
+        - openTradesCap
+        - totalNotional
+        - totalNotionalCap
+        - unrealizedPnl
+        - safetyMode
+        - symbolsScanned
+        - attentionCandidates
+        - setupCandidates
+        - paperTradesOpened
+        - capBreached
+        - lastScan
+        - lastPaperUpdate
+      properties:
+        openTrades:
+          type: integer
+        openTradesCap:
+          type: integer
+        totalNotional:
+          type: number
+        totalNotionalCap:
+          type: number
+        unrealizedPnl:
+          type: number
+        safetyMode:
+          type: string
+        symbolsScanned:
+          type: integer
+        attentionCandidates:
+          type: integer
+        setupCandidates:
+          type: integer
+        paperTradesOpened:
+          type: integer
+        capBreached:
+          type: boolean
+        lastScan:
+          type: string
+        lastPaperUpdate:
+          type: string
+
+    Trade:
+      type: object
+      required:
+        - id
+        - symbol
+        - market
+        - side
+        - setup
+        - entry
+        - stop
+        - target1
+        - rr
+        - riskPct
+        - notional
+        - pnl
+        - status
+      properties:
+        id:
+          type: integer
+        symbol:
+          type: string
+        market:
+          type: string
+        side:
+          type: string
+        setup:
+          type: string
+        entry:
+          type: number
+        stop:
+          type: number
+        target1:
+          type: number
+        rr:
+          type: string
+        riskPct:
+          type: string
+        notional:
+          type: number
+        pnl:
+          type: number
+        status:
+          type: string
+
+    TradeExposure:
+      type: object
+      required:
+        - openRiskPct
+        - longExposure
+        - shortExposure
+        - overCap
+      properties:
+        openRiskPct:
+          type: number
+        longExposure:
+          type: number
+        shortExposure:
+          type: number
+        overCap:
+          type: boolean
+
+    Candidate:
+      type: object
+      required:
+        - id
+        - symbol
+        - market
+        - candidateType
+        - stage
+        - setup
+        - score
+        - status
+        - blockerNote
+      properties:
+        id:
+          type: integer
+        symbol:
+          type: string
+        market:
+          type: string
+        candidateType:
+          type: string
+        stage:
+          type: string
+        setup:
+          type: string
+        score:
+          type: integer
+        status:
+          type: string
+        blockerNote:
+          type: string
+
+    CandidateStats:
+      type: object
+      required:
+        - setupCandidates
+        - watchlist
+        - rejected
+      properties:
+        setupCandidates:
+          type: integer
+        watchlist:
+          type: integer
+        rejected:
+          type: integer
+
+    Brief:
+      type: object
+      required:
+        - summary
+        - generatedAt
+        - openTrades
+        - latestScanRun
+        - briefGenerated
+        - notionalCapExceeded
+      properties:
+        summary:
+          type: string
+        generatedAt:
+          type: string
+        openTrades:
+          type: integer
+        latestScanRun:
+          type: integer
+        briefGenerated:
+          type: boolean
+        notionalCapExceeded:
+          type: boolean
+
+    BriefEvent:
+      type: object
+      required:
+        - id
+        - time
+        - event
+        - type
+      properties:
+        id:
+          type: integer
+        time:
+          type: string
+        event:
+          type: string
+        type:
+          type: string
+
+    ConfigRow:
+      type: object
+      required:
+        - id
+        - section
+        - setting
+        - value
+      properties:
+        id:
+          type: integer
+        section:
+          type: string
+        setting:
+          type: string
+        value:
+          type: string
+
+    SystemHealth:
+      type: object
+      required:
+        - bybitPublicData
+        - coinGeckoContext
+        - telegram
+        - liveExecution
+        - timestamp
+        - paperOnly
+        - dbInitialized
+        - telegramConfigured
+      properties:
+        bybitPublicData:
+          type: string
+        coinGeckoContext:
+          type: string
+        telegram:
+          type: string
+        liveExecution:
+          type: string
+        timestamp:
+          type: string
+        paperOnly:
+          type: boolean
+        dbInitialized:
+          type: boolean
+        telegramConfigured:
+          type: boolean
+
+    SystemActionInput:
+      type: object
+      required:
+        - action
+      properties:
+        action:
+          type: string
+
+    ActionResult:
+      type: object
+      required:
+        - success
+        - message
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string

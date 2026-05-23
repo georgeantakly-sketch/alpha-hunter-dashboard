@@ -1,0 +1,315 @@
+import streamlit as st
+import pandas as pd
+from datetime import datetime
+
+st.set_page_config(
+    page_title="Alpha Hunter Dashboard",
+    page_icon="📈",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+# -----------------------------
+# Mock data for visual prototype
+# -----------------------------
+open_trades = pd.DataFrame([
+    {
+        "Symbol": "FFUSDT",
+        "Market": "Futures",
+        "Side": "Long",
+        "Setup": "futures_breakout_long",
+        "Entry": 0.0899905,
+        "Stop": 0.0879805,
+        "Target 1": 0.0940105,
+        "R:R": "2.0R",
+        "Risk": "1.0%",
+        "Notional": 4188.35,
+        "PnL": -5.00,
+        "Status": "Open",
+    },
+    {
+        "Symbol": "WIFUSDT",
+        "Market": "Futures",
+        "Side": "Short",
+        "Setup": "futures_breakdown_short",
+        "Entry": 2.184,
+        "Stop": 2.236,
+        "Target 1": 2.080,
+        "R:R": "2.1R",
+        "Risk": "1.0%",
+        "Notional": 5200.00,
+        "PnL": 18.40,
+        "Status": "Open",
+    },
+    {
+        "Symbol": "SOLUSDT",
+        "Market": "Spot",
+        "Side": "Long",
+        "Setup": "spot_reclaim_long",
+        "Entry": 183.20,
+        "Stop": 177.90,
+        "Target 1": 194.00,
+        "R:R": "2.0R",
+        "Risk": "1.0%",
+        "Notional": 3500.00,
+        "PnL": 9.15,
+        "Status": "Watch",
+    },
+])
+
+candidates = pd.DataFrame([
+    {
+        "Symbol": "TIAUSDT",
+        "Market": "Futures",
+        "Candidate Type": "futures_short",
+        "Stage": "Setup Candidate",
+        "Setup": "breakdown_short",
+        "Score": 76,
+        "Status": "Setup",
+        "Blocker / Note": "Needs clean retest",
+    },
+    {
+        "Symbol": "SUIUSDT",
+        "Market": "Spot",
+        "Candidate Type": "spot_long",
+        "Stage": "Watchlist",
+        "Setup": "pullback_long",
+        "Score": 68,
+        "Status": "Watchlist",
+        "Blocker / Note": "R:R below 2.0",
+    },
+    {
+        "Symbol": "XRPUSDT",
+        "Market": "Futures",
+        "Candidate Type": "futures_short",
+        "Stage": "Rejected",
+        "Setup": "volume_only_signal",
+        "Score": 51,
+        "Status": "Rejected",
+        "Blocker / Note": "No clear setup",
+    },
+])
+
+brief_events = pd.DataFrame([
+    {"Time": "08:00", "Event": "Morning brief generated", "Type": "Brief"},
+    {"Time": "09:00", "Event": "Hourly scan completed — 8 candidates", "Type": "Scan"},
+    {"Time": "09:02", "Event": "4 paper trades opened", "Type": "Paper"},
+    {"Time": "10:00", "Event": "Paper trades updated — no stops/targets hit", "Type": "Paper"},
+    {"Time": "10:03", "Event": "Warning: futures notional near cap", "Type": "Risk"},
+])
+
+config_rows = pd.DataFrame([
+    {"Section": "Universe", "Setting": "max_universe_size", "Value": "100"},
+    {"Section": "Risk", "Setting": "risk_per_trade_pct", "Value": "1.0%"},
+    {"Section": "Risk", "Setting": "max_open_trades", "Value": "10"},
+    {"Section": "Risk", "Setting": "max_leverage", "Value": "3x"},
+    {"Section": "Risk", "Setting": "max_total_notional", "Value": "$50,000"},
+    {"Section": "Planner", "Setting": "min_rr", "Value": "2.0"},
+    {"Section": "Alerts", "Setting": "telegram_enabled", "Value": "false"},
+])
+
+# -----------------------------
+# Sidebar
+# -----------------------------
+st.sidebar.title("Alpha Hunter")
+st.sidebar.caption("Spot + Futures Paper Desk")
+
+page = st.sidebar.radio(
+    "Navigation",
+    [
+        "Overview",
+        "Open Trades",
+        "Candidates",
+        "Risk & Exposure",
+        "Briefs",
+        "Config",
+        "System Health",
+    ],
+)
+
+st.sidebar.divider()
+st.sidebar.subheader("Mode")
+st.sidebar.success("Paper trading only")
+st.sidebar.warning("Telegram disabled")
+st.sidebar.error("Live execution OFF")
+
+st.sidebar.divider()
+st.sidebar.subheader("Quick Actions")
+st.sidebar.button("Run hourly scan")
+st.sidebar.button("Run paper sanity")
+st.sidebar.button("Generate morning brief")
+st.sidebar.button("Send Telegram alerts")
+
+# -----------------------------
+# Header
+# -----------------------------
+st.title(page)
+st.caption(
+    "Last scan: 10:00 · Latest paper update: 10:03 · DB: local SQLite · Execution: local paper only"
+)
+
+# -----------------------------
+# Overview
+# -----------------------------
+if page == "Overview":
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Open Paper Trades", "12", "Cap: 10", delta_color="inverse")
+    col2.metric("Total Notional", "$55.6k", "Cap: $50k", delta_color="inverse")
+    col3.metric("Unrealized PnL", "+$82.57")
+    col4.metric("Safety Mode", "Paper", "No live execution")
+
+    st.divider()
+
+    left, right = st.columns([2, 1])
+
+    with left:
+        st.subheader("Open Paper Trades")
+        st.dataframe(open_trades, use_container_width=True, hide_index=True)
+
+    with right:
+        st.subheader("Latest Events")
+        for _, row in brief_events.iterrows():
+            if row["Type"] == "Risk":
+                st.warning(f"{row['Time']} — {row['Event']}")
+            elif row["Type"] == "Paper":
+                st.info(f"{row['Time']} — {row['Event']}")
+            else:
+                st.write(f"**{row['Time']}** — {row['Event']}")
+
+    st.divider()
+
+    f1, f2, f3, f4 = st.columns(4)
+    f1.metric("Symbols Scanned", "99")
+    f2.metric("Attention Candidates", "8")
+    f3.metric("Setup Candidates", "4")
+    f4.metric("Paper Trades Opened", "4")
+
+    st.warning(
+        "Paper book is currently above configured caps. Run paper-sanity, then paper-reconcile before connecting demo execution."
+    )
+
+# -----------------------------
+# Open Trades
+# -----------------------------
+elif page == "Open Trades":
+    st.subheader("Trade Book")
+    st.caption("Local simulated trades only. No real Bybit orders.")
+
+    status_filter = st.multiselect(
+        "Status filter", ["Open", "Watch", "Closed"], default=["Open", "Watch"]
+    )
+    market_filter = st.multiselect(
+        "Market filter", ["Spot", "Futures"], default=["Spot", "Futures"]
+    )
+
+    filtered = open_trades[
+        open_trades["Status"].isin(status_filter) & open_trades["Market"].isin(market_filter)
+    ]
+    st.dataframe(filtered, use_container_width=True, hide_index=True)
+
+    st.divider()
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Open Risk", "12%", "Over desired cap")
+    col2.metric("Long Exposure", "$7.7k")
+    col3.metric("Short Exposure", "$5.2k")
+
+# -----------------------------
+# Candidates
+# -----------------------------
+elif page == "Candidates":
+    st.subheader("Candidate Review")
+    st.caption("Attention → setup → trade planned → risk approved → paper trade")
+
+    st.dataframe(candidates, use_container_width=True, hide_index=True)
+
+    st.divider()
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Setup Candidates", "4")
+    c2.metric("Watchlist", "5")
+    c3.metric("Rejected", "7")
+
+    st.info(
+        "TA is used to validate selected candidates and build trade plans. It is not the main universe-selection engine."
+    )
+
+# -----------------------------
+# Risk & Exposure
+# -----------------------------
+elif page == "Risk & Exposure":
+    st.subheader("Risk Controls")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("Open Trades", "12 / 10")
+        st.metric("Total Notional", "$55.6k / $50k")
+        st.metric("Risk Per Trade", "1.0%")
+        st.metric("Max Leverage", "3x")
+
+    with col2:
+        st.error("Cap breach: max_open_trades exceeded")
+        st.error("Cap breach: max_total_notional exceeded")
+        st.warning("Duplicate open symbol/side/market combo detected")
+        st.success("New paper openings blocked while over cap")
+
+    st.divider()
+    st.subheader("Recommended Local Paper Actions")
+    st.code(
+        "python -m futures_alpha_hunter paper-sanity --market all\n"
+        "python -m futures_alpha_hunter paper-reconcile --market all\n",
+        language="bash",
+    )
+
+# -----------------------------
+# Briefs
+# -----------------------------
+elif page == "Briefs":
+    st.subheader("Latest Morning Brief")
+    st.info(
+        "Open trades: 12. Latest scan run: 10. Brief generated after latest hourly scan: true. "
+        "Notional cap exceeded; paper openings blocked until reconciliation."
+    )
+
+    st.subheader("Brief Timeline")
+    st.dataframe(brief_events, use_container_width=True, hide_index=True)
+
+# -----------------------------
+# Config
+# -----------------------------
+elif page == "Config":
+    st.subheader("Effective Config")
+    st.caption("View-only in MVP. Editing should come later with audit logs and versioning.")
+    st.dataframe(config_rows, use_container_width=True, hide_index=True)
+
+    st.warning(
+        "Config editing should require confirmation, audit logs, and rollback before it is enabled."
+    )
+
+# -----------------------------
+# System Health
+# -----------------------------
+elif page == "System Health":
+    st.subheader("Connector Health")
+    h1, h2, h3, h4 = st.columns(4)
+    h1.success("Bybit public data: healthy")
+    h2.success("CoinGecko context: healthy")
+    h3.warning("Telegram: disabled")
+    h4.error("Live execution: off")
+
+    st.divider()
+    st.subheader("Safety Boundary")
+    st.write("✅ No live trading")
+    st.write("✅ No private exchange permissions")
+    st.write("✅ No real order routing")
+    st.write("✅ Telegram notifications only")
+
+    st.divider()
+    st.subheader("Last Health Check")
+    st.json(
+        {
+            "timestamp": datetime.utcnow().isoformat(),
+            "paper_only": True,
+            "db_initialized": True,
+            "telegram_configured": False,
+            "live_execution": False,
+        }
+    )
