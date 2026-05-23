@@ -4,21 +4,21 @@ import {
   RunSystemActionBody,
   RunSystemActionResponse,
 } from "@workspace/api-zod";
+import {
+  alphaUnavailablePayload,
+  fetchAlphaHunterState,
+  mapSystemHealth,
+} from "../lib/alpha-hunter";
 
 const router: IRouter = Router();
 
 router.get("/system/health", async (req, res): Promise<void> => {
-  const health = GetSystemHealthResponse.parse({
-    bybitPublicData: "healthy",
-    coinGeckoContext: "healthy",
-    telegram: "disabled",
-    liveExecution: "off",
-    timestamp: new Date().toISOString(),
-    paperOnly: true,
-    dbInitialized: true,
-    telegramConfigured: false,
-  });
-  res.json(health);
+  try {
+    const state = await fetchAlphaHunterState(String(req.query["market"] ?? "all"));
+    res.json(GetSystemHealthResponse.parse(mapSystemHealth(state)));
+  } catch (error) {
+    res.status(503).json(alphaUnavailablePayload(error));
+  }
 });
 
 router.post("/system/actions", async (req, res): Promise<void> => {
@@ -28,19 +28,13 @@ router.post("/system/actions", async (req, res): Promise<void> => {
     return;
   }
 
-  const actionMessages: Record<string, string> = {
-    run_hourly_scan: "Hourly scan completed — 8 candidates found",
-    run_paper_sanity: "Paper sanity check passed — 0 orphaned trades",
-    generate_morning_brief: "Morning brief generated successfully",
-    send_telegram_alerts: "Telegram alerts dispatched",
-  };
-
-  const message =
-    actionMessages[parsed.data.action] ??
-    `Action '${parsed.data.action}' executed`;
-
-  req.log.info({ action: parsed.data.action }, "System action executed");
-  res.json(RunSystemActionResponse.parse({ success: true, message }));
+  req.log.warn({ action: parsed.data.action }, "Dashboard system actions are disabled");
+  res.status(403).json(
+    RunSystemActionResponse.parse({
+      success: false,
+      message: "Dashboard actions are disabled. Run Alpha Hunter commands from the operator terminal.",
+    }),
+  );
 });
 
 export default router;
