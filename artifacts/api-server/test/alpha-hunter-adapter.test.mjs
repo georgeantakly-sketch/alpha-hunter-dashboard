@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import http from "node:http";
+import os from "node:os";
+import path from "node:path";
 import { test } from "node:test";
 
 const alphaState = {
@@ -225,4 +228,35 @@ test("system actions are disabled from the dashboard adapter", async () => {
       },
     );
   });
+});
+
+test("dashboard server serves the built React shell when static assets exist", async () => {
+  const staticDir = await mkdtemp(path.join(os.tmpdir(), "alpha-hunter-static-"));
+  try {
+    await writeFile(
+      path.join(staticDir, "index.html"),
+      "<!doctype html><title>Alpha Hunter</title><div id=\"root\"></div>",
+    );
+
+    await withFakeAlphaServer(async (alphaUrl) => {
+      await withDashboardServer(
+        {
+          ALPHA_HUNTER_API_URL: alphaUrl,
+          ALPHA_HUNTER_API_TOKEN: "adapter-token",
+          ALPHA_HUNTER_STATIC_DIR: staticDir,
+        },
+        async (baseUrl) => {
+          const response = await fetch(`${baseUrl}/trades`);
+          assert.equal(response.status, 200);
+          assert.match(await response.text(), /Alpha Hunter/);
+
+          const missingApi = await fetch(`${baseUrl}/api/not-real`);
+          assert.equal(missingApi.status, 404);
+          assert.equal((await missingApi.json()).error, "not_found");
+        },
+      );
+    });
+  } finally {
+    await rm(staticDir, { recursive: true, force: true });
+  }
 });
